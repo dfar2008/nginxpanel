@@ -1,0 +1,42 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin;
+
+echo '=============================================================';
+echo ' [LNMP/Nginx] Amysql Host - AMH 3.2 ';
+echo ' http://Amysql.com';
+echo '';
+
+function PHPManagement()
+{
+	if [ "$1" != '' ]; then
+		selected=$1;
+	else
+		echo "[AMH] PHP Management please select: (1~6)"
+		select selected in  'start' 'stop' 'reload' 'force-quit' 'restart'  'exit'; do
+			break;
+		done;
+	fi;
+
+	if [ "$selected" == 'exit' ]; then
+		exit;
+	elif [ "$selected" == 'start' ]; then
+		/usr/local/php/sbin/php-fpm restart && echo "[OK]  PHP start";
+		exit;
+	elif [ "$selected" == 'stop' ]; then
+		#/usr/local/php/sbin/php-fpm stop && echo "[OK]  PHP stop";
+		exit;
+	elif [ "$selected" == 'force-quit' ]; then
+		#/usr/local/php/sbin/php-fpm quit && echo "[OK]  PHP force-quit";
+		exit;
+	elif [ "$selected" == 'restart' ]; then
+		/usr/local/php/sbin/php-fpm restart&& echo "[OK]  PHP restart";
+		exit;
+	elif [ "$selected" == 'reload' ]; then
+		/usr/local/php/sbin/php-fpm reload  && echo "[OK]  PHP reload";
+		exit;
+	else
+		PHPManagement;
+		return;
+	fi;
+}
+PHPManagement $1;

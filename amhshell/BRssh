@@ -1,0 +1,136 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin;
+
+echo '=============================================================';
+echo ' [LNMP/Nginx] Amysql Host - AMH 3.2 ';
+echo ' http://Amysql.com';
+echo '';
+
+CONFIGFILE="/root/amh/config.conf"
+if [ -r ${CONFIGFILE} ]; then
+	# Read the configfile if it's existing and readable
+	source ${CONFIGFILE}
+else
+	MysqlPass='MysqlPassword';
+	RootDir='alidata';
+	BackupDir='alidata/www';
+fi;
+ssh_host='';
+ssh_user='';
+ssh_pass='';
+ssh_pass_type='';
+ssh_path='';
+put_file='';
+ssh_log='/${RootDir}/wwwlogs/BRssh.log';
+check_ssh_log='/${RootDir}/wwwlogs/BRssh_check.log';
+
+
+function check_remote_ssh() 
+{
+id=$1;
+sql="SELECT remote_ip , remote_user , remote_password, remote_pass_type FROM amh.amh_backup_remote WHERE remote_type = 'SSH' AND remote_id = '${id}'";
+set -- `mysql -uroot -p${MysqlPass} -B -N -e  "${sql}"`;
+ssh_host=$1;
+ssh_user=$2;
+ssh_pass=$3;
+ssh_pass_type=$4;
+if [ "$ssh_host" == '' ]; then
+	echo '[Error] empty ssh host.';
+	exit;
+fi;
+transmitted=`ping -c3 ${ssh_host} | grep transmitted | awk '{print $4}'`;
+if [ "$transmitted" == 0 ]; then
+	echo '[Error] time out.';
+	exit;
+else
+echo '' > ${check_ssh_log};
+rm -rf /tmp/issue;
+if [ "$ssh_pass_type" == '1' ]; then
+expect > ${check_ssh_log} <<EOF
+spawn scp ${ssh_user}@${ssh_host}:/etc/issue /tmp/issue
+expect "Are you sure you want to continue connecting (yes/no)?" { send "yes\r" }
+expect "@${ssh_host}'s password:" { send "$ssh_pass\r" }
+expect eof
+EOF
+else
+	rsa="/${RootDir}/rsa/${ssh_host}.amh.rsa";
+	rm -rf ${rsa};
+	sql="SELECT remote_password FROM amh.amh_backup_remote WHERE remote_id = '${id}' into outfile '${rsa}'";
+	#echo $sql;
+	mysql -uroot -p${MysqlPass} -e "${sql}";
+	sed -i 's#\\##g' ${rsa}; #ctrl+v ctrl+m
+expect <<EOF
+spawn scp -i ${rsa} ${ssh_user}@${ssh_host}:/etc/issue /tmp/issue
+expect "(yes/no)?" { send "yes\r"}
+expect eof
+EOF
+	if [ -f /tmp/issue ]; then
+		echo 'issue 100%' > ${check_ssh_log};
+	fi;
+fi;
+grep -q 'issue' ${check_ssh_log} && grep -q '100%' ${check_ssh_log} && echo "[OK] ssh#${ssh_user}@${ssh_host} connected successfully." || echo "[Error] ssh#${ssh_user}@${ssh_host} connection failed." ;
+
+fi;
+}
+
+
+function post_remote_ssh()
+{
+echo '' > ${check_ssh_log};
+rm -rf /tmp/issue;
+backup_file=$1;
+sql="SELECT remote_id , remote_ip , remote_user , remote_path , remote_pass_type , remote_password FROM amh.amh_backup_remote WHERE remote_type = 'SSH' AND remote_status = '1' ORDER BY remote_id ASC";
+mysql -uroot -p${MysqlPass} -B -N -e "${sql}"  | while read result; do
+	set -- $result;
+	status=`check_remote_ssh $1`;
+
+if grep -q '100%' ${check_ssh_log}; then
+ssh_id=$1;
+ssh_host=$2;
+ssh_user=$3;
+ssh_path=$4;
+ssh_pass_type=$5;
+ssh_pass=$6;
+
+if [ "$ssh_pass_type" == '1' ]; then
+expect > ${check_ssh_log} <<EOF
+spawn ssh ${ssh_user}@${ssh_host} mkdir -p ${ssh_path}
+expect "Are you sure you want to continue connecting (yes/no)?" { send "yes\r" }
+expect "@${ssh_host}'s password:" { send "$ssh_pass\r" }
+expect eof
+EOF
+expect > ${check_ssh_log} <<EOF
+spawn scp /${RootDir}/backup/${backup_file} ${ssh_user}@${ssh_host}:${ssh_path}/${backup_file}
+expect "@${ssh_host}'s password:" { send "$ssh_pass\r" }
+expect eof
+EOF
+else
+	rsa="/${RootDir}/rsa/${ssh_host}.amh.rsa";
+	rm -rf ${rsa};
+	sql_rsa="SELECT remote_password FROM amh.amh_backup_remote WHERE remote_id = '${ssh_id}' into outfile '${rsa}'";
+	#echo $sql;
+	mysql -uroot -p${MysqlPass} -e "${sql_rsa}";
+	sed -i 's#\\##g' ${rsa}; #ctrl+v ctrl+m
+	ssh -i ${rsa} ${ssh_user}@${ssh_host} mkdir -p ${ssh_path};
+	scp -i ${rsa} /${RootDir}/backup/${backup_file} ${ssh_user}@${ssh_host}:${ssh_path}/${backup_file} > ${check_ssh_log};
+fi;
+		log_text="post ${backup_file} success.";
+
+else
+		log_text="post ${backup_file} failed.";
+fi;
+
+echo "${status}  ${log_text}";
+sql_log="INSERT INTO amh.amh_log(log_user_id, log_text, log_ip) VALUES('0', '${status} \n $log_text', 'localhost')";
+mysql -uroot -p${MysqlPass} -B -N -e "${sql_log}";
+done;
+}
+
+
+if [ "$1" == 'check' ]; then
+	check_remote_ssh $2;
+elif [ "$1" == 'post' ]; then
+	post_remote_ssh $2;
+fi;
+
+

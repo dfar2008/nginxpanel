@@ -1,0 +1,177 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin;
+
+echo '=============================================================';
+echo ' [LNMP/Nginx] Amysql Host - AMH 3.2 ';
+echo ' http://Amysql.com';
+echo '';
+CONFIGFILE="/root/amh/config.conf"
+if [ -r ${CONFIGFILE} ]; then
+	# Read the configfile if it's existing and readable
+	source ${CONFIGFILE}
+else
+	MysqlPass='MysqlPassword';
+	RootDir='alidata';
+	BackupDir='alidata/www';
+fi;
+
+
+function HostManagement()
+{
+	if [ "$*" != '' ]; then
+		selected=$1;
+		domain=$2;		
+		username=$3;
+		password=$4;
+		install_soft=$5;
+
+	else
+		echo "[AMH] Host Management please select: (1~7)"
+		select selected in 'start' 'stop' 'add' 'edit' 'del' 'exit'; do
+			break;
+		done;
+	fi;
+
+	if [ "$selected" == 'exit' ]; then
+		exit;
+
+	elif [ "$selected" == 'add' ]; then
+		if [ "$domain" == '' ]; then
+			read -p "[Notice] Please input domain:" domain
+		fi;
+
+		if [ "$domain" == '' ]; then
+			echo '[error] empty domain';
+			exit;
+		fi;
+
+		if [ -f "/usr/local/nginx/conf/vhost/$domain.conf" ] || [ -f "/usr/local/nginx/conf/vhost_stop/$domain.conf" ]; then
+			echo "$domain is exist!";
+			exit;
+		fi;
+	
+		#nginx-host.conf
+		mkdir -p /usr/local/nginx/conf/vhost/
+		mkdir -p /usr/local/nginx/conf/vhost_stop/
+		cp /root/amh/vhost.conf /usr/local/nginx/conf/vhost/$domain.conf;
+		sed -i "s#vhost.crm123.cn#$domain#g" /usr/local/nginx/conf/vhost/$domain.conf;
+
+		#host dir
+		mkdir -p /${RootDir}/www/$domain/$domain;
+		chmod -R 755 /${RootDir}/www/$domain/$domain;
+		chown -R www:www /${RootDir}/www/$domain/$domain;
+# EOF **********************************
+mysql -hlocalhost -uroot -p${MysqlPass} <<EOF
+CREATE DATABASE ${username} DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+CREATE USER ${username}@'localhost' IDENTIFIED BY '${password}';
+GRANT ALL PRIVILEGES ON ${username}.* TO '${username}'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+# **************************************
+		if [ "$install_soft" == 'crm' ]; then
+			unzip -o /root/amh/crm402.zip -d /${RootDir}/www/${domain}/${domain};
+			chmod -R 777 /${RootDir}/www/${domain}/${domain};
+			mysql -u ${username} -p${password} ${username} < /root/amh/sql402.sql;
+			sed -i "s#lnmp_database#$username#g" /${RootDir}/www/${domain}/$domain/config.inc.php;
+			sed -i "s#lnmp_url#$domain#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+			sed -i "s#lnmp_password#$password#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+		elif [ "$install_soft" == 'crmedu' ]; then
+		        unzip -o /root/amh/crmedu.zip -d /${RootDir}/www/${domain}/${domain};
+			chmod -R 777 /${RootDir}/www/${domain}/${domain};
+			mysql -u ${username} -p${password} ${username} < /root/amh/crmedu.sql;
+			sed -i "s#lnmp_database#$username#g" /${RootDir}/www/${domain}/$domain/config.inc.php;
+			sed -i "s#lnmp_url#$domain#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+			sed -i "s#lnmp_password#$password#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+
+			sed -i "s#lnmp_database#$username#g" /${RootDir}/www/${domain}/$domain/portal/config.inc.php;
+			sed -i "s#lnmp_url#$domain#g" /${RootDir}/www/${domain}/${domain}/portal/config.inc.php;
+			sed -i "s#lnmp_password#$password#g" /${RootDir}/www/${domain}/${domain}/portal/config.inc.php;
+		elif [ "$install_soft" == 'crmfree' ]; then
+		        unzip -o /root/amh/crmfree.zip -d /${RootDir}/www/${domain}/${domain};
+			chmod -R 777 /${RootDir}/www/${domain}/${domain};
+			mysql -u ${username} -p${password} ${username} < /root/amh/sqlfree.sql;
+			sed -i "s#lnmp_database#$username#g" /${RootDir}/www/${domain}/$domain/config.inc.php;
+			sed -i "s#lnmp_url#$domain#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+			sed -i "s#lnmp_password#$password#g" /${RootDir}/www/${domain}/${domain}/config.inc.php;
+		fi;
+		/etc/init.d/nginx reload;
+		echo "[OK] successfully create $domain vhost";
+		echo "The DocumentRoot:/$RootDir/www/$domain/$domain/";
+		exit;
+
+	elif [ "$selected" == 'start' ]; then
+		if [ "$domain" == '' ]; then
+			exit;
+		fi;
+
+		if [ -f "/usr/local/nginx/conf/vhost/$domain.conf" ]; then
+			echo "[OK] $domain vhost is ok";
+		else
+			mv /usr/local/nginx/conf/vhost_stop/${domain}.conf /usr/local/nginx/conf/vhost/${domain}.conf && echo "[OK] successfully start $domain vhost";
+		fi;
+		/etc/init.d/nginx reload;
+		exit;
+	elif [ "$selected" == 'stop' ]; then
+		if [ "$domain" == '' ]; then
+			exit;
+		fi;
+		if [ ! -f "/usr/local/nginx/conf/vhost/$domain.conf" ]; then
+			echo "[OK] $domain vhost already stopped";
+		else
+			mv /usr/local/nginx/conf/vhost/${domain}.conf /usr/local/nginx/conf/vhost_stop/${domain}.conf && echo "[OK] successfully stop $domain vhost";
+		fi;
+
+		/etc/init.d/nginx reload;
+		exit;
+	elif [ "$selected" == 'del' ]; then
+		if [ "$domain" == '' ]; then
+			read -p "[Notice] deleted domain:" domain
+		fi;
+
+		if [ -f "/usr/local/nginx/conf/vhost/$domain.conf" ]; then
+			host_conf_file=/usr/local/nginx/conf/vhost/$domain.conf;
+		else
+			host_conf_file=/usr/local/nginx/conf/vhost_stop/$domain.conf;
+		fi;
+
+		if [ ! -f "$host_conf_file" ]; then
+			echo "$domain not exist!";
+			exit;
+		else
+			rm -f $host_conf_file;
+		fi;
+		if [ ! -d "/${RootDir}/www_deleted" ]; then
+			mkdir -p /${RootDir}/www_deleted;
+		fi;
+		mv /${RootDir}/www/${domain} /${RootDir}/www_deleted
+		tar czvf /${RootDir}/www_deleted/${domain}.tar /${RootDir}/www_deleted/${domain}
+		rm -fr /${RootDir}/www_deleted/${domain}
+		/usr/local/mysql/bin/mysqldump -uroot -p${MysqlPass} ${username} > /${RootDir}/www_deleted/${domain}.sql
+		/etc/init.d/nginx reload;
+		echo "[OK] successfully delete $domain vhost";
+		exit;
+	elif [ "$selected" == 'backup' ]; then
+		if [ "$domain" == '' ]; then
+			read -p "[Notice] backup domain:" domain;
+		fi;
+		if [ ! -d "/${RootDir}/mysql/backup/files/${domain}" ]; then
+			mkdir -p /${RootDir}/mysql/backup/files/${domain};
+		fi;
+		if [ ! -d "/${RootDir}/mysql/backup/db/daily/${username}" ]; then
+			mkdir -p /${RootDir}/mysql/backup/db/daily/${username};
+		fi;
+		WHICH="`which which`"
+                DATEC="`${WHICH} date`"
+		DATE=`${DATEC} +%Y-%m-%d_%Hh%Mm`
+		DATE = `date +%Y-%m-%d_%Hh%Mm`
+		DOW=`${DATEC} +%A`
+		tar czvf /${RootDir}/mysql/backup/files/${domain}/${domain}.${DATE}.${DOW}_amh.tar /${RootDir}/www/${domain}/${domain};
+		/usr/local/mysql/bin/mysqldump -uroot -p${MysqlPass} ${username} > /${RootDir}/mysql/backup/db/daily/${username}/${username}.${DATE}.${DOW}_amh.sql;
+		echo "[OK] successfully backup $domain vhost";
+		exit;
+	else
+		HostManagement;
+		return;
+	fi;
+}
+HostManagement $*;

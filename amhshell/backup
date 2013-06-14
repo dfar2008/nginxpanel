@@ -1,0 +1,95 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin;
+
+echo '=============================================================';
+echo ' [LNMP/Nginx] Amysql Host - AMH 3.2 ';
+echo ' http://Amysql.com';
+echo '';
+CONFIGFILE="/root/amh/config.conf"
+if [ -r ${CONFIGFILE} ]; then
+	# Read the configfile if it's existing and readable
+	source ${CONFIGFILE}
+else
+	MysqlPass='MysqlPassword';
+	RootDir='alidata';
+	BackupDir='alidata/www';
+fi;
+
+RemoteBackup=$1;
+AMHTarPass=$2;
+AMHComment=$3;
+AMHBackupVersion='3.2';
+MysqlBackup='';
+WWWBackup='';
+AMHBackup='';
+DoneBackup='';
+OpensslBackup='';
+
+DateTag=`date +%Y%m%d-%H%M%S`;
+mkdir -p /${RootDir}/mysql/backup/${DateTag}/mysql/;
+cd /${RootDir}/mysql/backup/${DateTag}/;
+#cp -a /${BackupDir}/ ./ || WWWBackup='wwwroot backup failed.';
+
+
+if [ "$WWWBackup" == '' ]; then
+
+	DoneBackup="${DateTag}.tar.gz";
+	backup_remote=0;
+	if  [ "$RemoteBackup" == 'y' ]; then
+		backup_remote=1;
+	fi;
+	backup_password=0;
+	if [ "$AMHTarPass" != '' ] && [ "$AMHTarPass" != 'n' ]; then
+		backup_password=1;
+		DoneBackup="${DateTag}.tar.gz";
+	fi;
+
+        sql_backup_list="INSERT INTO amh.amh_backup_list (backup_file, backup_size, backup_password, backup_remote, backup_comment) VALUES ('${DoneBackup}', '-', '${backup_password}', '${backup_remote}', '${AMHComment}')";
+	#echo ${sql_backup_list}
+        mysql -uroot -p${MysqlPass} -B -N -e "SET NAMES 'utf8';$sql_backup_list";
+
+
+        #mysql ****************************************
+        for database in ` mysql -uroot -p${MysqlPass} -B -N -e 'SHOW DATABASES'`;do
+                /usr/local/mysql/bin/mysqldump --single-transaction --database -uroot -p${MysqlPass} ${database} > /${RootDir}/mysql/backup/${DateTag}/mysql/${database}.sql || MysqlBackup="database:${database} backup failed.";
+        done;
+
+        if [ "$MysqlBackup" == '' ]; then
+                cd /${RootDir}/mysql/backup/;
+                tar -zcf /${RootDir}/mysql/backup/${DateTag}.tar.gz ./${DateTag} || AMHBackup='AMH backup failed.';	
+
+                if [ "$AMHBackup" == '' ]; then
+#                        if [ "$backup_password" == '1' ]; then
+#                                openssl enc -des3 -salt -k ${AMHTarPass} -in ${DateTag}.tar.gz -out ${DateTag}.amh || OpensslBackup='openssl error.';
+#                                if [ "$OpensslBackup" == '' ]; then
+#                                        echo "[OK] AMH backup success. (${DoneBackup})";
+#                                else
+#                                        echo "[Error] ${OpensslBackup}";
+#                                fi;
+#                                rm -rf ${DateTag}.tar.gz;
+#                        else
+#                                echo "[OK] AMH backup success. (${DoneBackup})";
+#                        fi;
+                        echo "[OK] AMH backup success. (${DoneBackup})";
+                else
+                        echo "[Error] ${AMHBackup}.";
+                fi;
+
+        else
+                echo "[Error] $MysqlBackup";
+        fi;
+else
+        echo "[Error] ${WwwBackup}";
+fi;
+
+
+rm -rf /${RootDir}/mysql/backup/${DateTag};
+
+if [ "$DoneBackup" != '' ]; then
+
+        #backup_size=`ls -l /${RootDir}/mysql/backup/${DoneBackup} | awk '{printf ("%.2f", $5/1024/1024) }'`;
+        if  [ "$RemoteBackup" == 'y' ]; then
+                amh BRftp post ${DoneBackup} >/dev/null;
+                amh BRssh post ${DoneBackup} >/dev/null;
+        fi;
+fi;

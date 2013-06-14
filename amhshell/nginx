@@ -1,0 +1,43 @@
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin;
+
+echo '=============================================================';
+echo ' [LNMP/Nginx] Amysql Host - AMH 3.2 ';
+echo ' http://Amysql.com';
+echo '';
+
+function NginxManagement()
+{
+	if [ "$1" != '' ]; then
+		selected=$1;
+	else
+		echo "[AMH] Nginx Management please select: (1~4)"
+		select selected in 'start' 'stop' 'reload' 'exit'; do
+			break;
+		done;
+	fi;
+
+	if [ "$selected" == 'exit' ]; then
+		exit;
+	elif [ "$selected" == 'start' ]; then
+		/etc/init.d/nginx start;
+		ps x | grep 'nginx:' | grep -v 'grep' >/dev/null && echo "[OK] Nginx start";
+		exit;
+	elif [ "$selected" == 'stop' ]; then
+	        #/etc/init.d/nginx stop;
+		echo "[OK] Nginx stop";
+		exit;
+	elif [ "$selected" == 'restart' ]; then
+		/etc/init.d/nginx restart;
+		ps x | grep 'nginx:' | grep -v 'grep' >/dev/null && echo "[OK] Nginx restart";
+		exit;
+	elif [ "$selected" == 'reload' ]; then
+	        /etc/init.d/nginx reload;
+		echo "[OK] Nginx reload";
+		exit;
+	else
+		NginxManagement;
+		return;
+	fi;
+}
+NginxManagement $1;
