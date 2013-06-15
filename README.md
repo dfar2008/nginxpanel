@@ -13,7 +13,7 @@ Lnmp虚拟主机控制面板简介<br>
 安装步骤：<br>
 1）首先安装lnmp0.7,理论上高版本也可以正常运行。<br>
 2）使用root用户登录linux，默认进入/root目录下。<br>
-2）下载nginxpanel安装包，例如nginxpanel.zip,解压缩在/root/nginxpanel目录下。<br>
+2）下载nginxpanel安装包(下载地址：<a href="http://vdisk.weibo.com/s/FVsZk" target="_blank">http://vdisk.weibo.com/s/FVsZk</a>)，例如nginxpanel.zip,解压缩在/root/nginxpanel目录下。<br>
 3）cd /root/nginxpanel<br>
 4）chmod 777 amh.sh<br>
 5）./amh.sh 并按照提示输入mysql密码，amh密码和wwwroot所在目录。<br>
