@@ -20,3 +20,4 @@ Lnmp虚拟主机控制面板简介<br>
 6）即可通过浏览器访问http://ip/amh/访问面板。<br>
 7）面板相关的配置文件是/root/amh/config.conf 和 /home/wwwroot/amh/Amysql/Config.php 。<br>
 8）管理虚拟主机面板的shell脚本在/root/amh目录下，相关的php代码在/home/wwwroot/amh目录下。<br>
+如果需要集成pureftpd，首先安装pureftpd和对应的管理程序User_manager_for-PureFTPd，然后修改一下pureftpd-mysql.conf 里面的数据库配置信息，改用amh数据库中的Users表即可，amh中的User表就是从ftpusers数据库中的users表而来的。<br>
