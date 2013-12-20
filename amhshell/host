@@ -143,10 +143,20 @@ EOF
 		if [ ! -d "/${RootDir}/www_deleted" ]; then
 			mkdir -p /${RootDir}/www_deleted;
 		fi;
-		mv /${RootDir}/www/${domain} /${RootDir}/www_deleted
-		tar czvf /${RootDir}/www_deleted/${domain}.tar /${RootDir}/www_deleted/${domain}
-		rm -fr /${RootDir}/www_deleted/${domain}
-		/usr/local/mysql/bin/mysqldump -uroot -p${MysqlPass} ${username} > /${RootDir}/www_deleted/${domain}.sql
+		WHICH="`which which`"
+                DATEC="`${WHICH} date`"
+		DATE=`${DATEC} +%Y-%m-%d_%Hh%Mm`
+		#DATE = `date +%Y-%m-%d_%Hh%Mm`
+		DOW=`${DATEC} +%A`
+		/usr/local/mysql/bin/mysqldump -uroot -p${MysqlPass} ${username} > /${RootDir}/mysql/backup/db/daily/${username}/${username}.${DATE}.${DOW}_amh.sql;
+		#echo "$username db backup [OK]";
+		/usr/local/mysql/bin/mysql -uroot -p${MysqlPass} -e "DROP DATABASE $username";
+		#echo "$username db droped [OK]";
+		/usr/local/mysql/bin/mysql -uroot -p${MysqlPass} -e "USE mysql;DELETE FROM user WHERE User='$username'";
+		#echo "$username user droped [OK]";
+		/usr/local/mysql/bin/mysql -uroot -p${MysqlPass} -e "flush privileges";
+		tar czvf /${RootDir}/mysql/backup/files/${domain}/${domain}.${DATE}.${DOW}_amh.tar /${RootDir}/www/${domain}/${domain};
+		rm -fr /${RootDir}/www/${domain}		
 		/etc/init.d/nginx reload;
 		echo "[OK] successfully delete $domain vhost";
 		exit;
@@ -168,6 +178,23 @@ EOF
 		tar czvf /${RootDir}/mysql/backup/files/${domain}/${domain}.${DATE}.${DOW}_amh.tar /${RootDir}/www/${domain}/${domain};
 		/usr/local/mysql/bin/mysqldump -uroot -p${MysqlPass} ${username} > /${RootDir}/mysql/backup/db/daily/${username}/${username}.${DATE}.${DOW}_amh.sql;
 		echo "[OK] successfully backup $domain vhost";
+		exit;
+	elif [ "$selected" == 'chmod' ]; then
+		if [ "$domain" == '' ]; then
+			exit;
+		fi;
+		
+		chmod 777 -R /${RootDir}/www/${domain}/${domain}/modules
+		chmod 777 -R /${RootDir}/www/${domain}/${domain}/Smarty/templates
+		echo "[OK] successfully chmod $domain vhost";
+		exit;
+	elif [ "$selected" == 'unchmod' ]; then
+		if [ "$domain" == '' ]; then
+			exit;
+		fi;
+		chmod 555 -R /${RootDir}/www/${domain}/${domain}/modules
+		chmod 555 -R /${RootDir}/www/${domain}/${domain}/Smarty/templates
+		echo "[OK] successfully unchmod $domain vhost";
 		exit;
 	else
 		HostManagement;

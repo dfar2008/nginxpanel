@@ -22,6 +22,7 @@
 <a href="index.php" id="home">首页</a>
 <a href="index.php?c=host" id="host" >虚拟主机</a>
 <a href="index.php?c=mysql" id="mysql" >MySQL</a>
+<a href="index.php?c=ftp" id="mysql" >FTP</a>
 <a href="index.php?c=backup" id="backup" >备份</a>
 <a href="index.php?c=task" id="task" >计划任务</a>
 <a href="index.php?c=account" id="account" >账户</a>

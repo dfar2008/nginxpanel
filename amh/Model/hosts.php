@@ -201,14 +201,15 @@ class hosts extends AmysqlModel
 	// 删除host ssh
 	function host_del_ssh($host_domain)
 	{
-		$sql = "update users set deleted=1 WHERE domain='".$host_domain."'";
-		$this -> _query($sql);
 		$row = $this ->get_host($host_domain);
 		$username = $row["User"];
 		$password = $row["Password"];
 		$cmd = "amh host del $host_domain $username $password";
 		$cmd = Functions::trim_cmd($cmd);
-		Return Functions::trim_result(shell_exec($cmd));
+		$result = Functions::trim_result(shell_exec($cmd));
+		$sql = "update users set deleted=1 WHERE domain='".$host_domain."'";
+		$this -> _query($sql);
+		Return $result;
 	}
 
 	// 备份host ssh
